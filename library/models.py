@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -14,6 +15,19 @@ class LibraryEntry(models.Model):
         (STATUS_DROPPED, STATUS_DROPPED),
     ]
 
-    external_game_id = models.CharField(max_length=255, unique=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="library_entries",
+    )
+    external_game_id = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     hours_played = models.IntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "external_game_id"],
+                name="unique_library_entry_per_user_game",
+            ),
+        ]
