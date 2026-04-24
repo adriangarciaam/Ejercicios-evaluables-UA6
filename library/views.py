@@ -1,188 +1,103 @@
-import json
-
-from django.contrib.auth import authenticate, get_user_model, login as django_login
+from django.contrib.auth import (
+    authenticate,
+    get_user_model,
+    login as django_login,
+    logout as django_logout,
+    update_session_auth_hash,
+)
 from django.db import IntegrityError
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
+from .api_helpers import (
+    duplicate_error,
+    external_service_error,
+    external_service_unavailable_error,
+    invalid_external_game_id_error,
+    method_not_allowed,
+    not_found_error,
+    parse_json_body,
+    require_authenticated,
+    serialize_entry,
+    serialize_user,
+    unauthorized_error,
+    validation_error,
+)
+from .catalog import (
+    CatalogResponseError,
+    CatalogUnavailableError,
+    catalog_game_exists,
+    resolve_catalog_games,
+    search_catalog_games,
+)
 from .models import LibraryEntry
+from .validators import (
+    validate_catalog_resolve_payload,
+    validate_catalog_search_query,
+    validate_create_payload,
+    validate_login_payload,
+    validate_password_change_payload,
+    validate_patch_payload,
+    validate_put_payload,
+    validate_register_payload,
+)
 
 
-ALLOWED_STATUSES = {
-    LibraryEntry.STATUS_WISHLIST,
-    LibraryEntry.STATUS_PLAYING,
-    LibraryEntry.STATUS_COMPLETED,
-    LibraryEntry.STATUS_DROPPED,
-}
+def frontend(request):
+    # Sirve la interfaz web sencilla incluida en la app.
+    return render(request, "library/index.html")
 
 
-def validation_error(details=None):
-    body = {
-        "error": "validation_error",
-        "message": "Datos de entrada inv\u00e1lidos",
-    }
-    if details is not None:
-        body["details"] = details
-    return JsonResponse(body, status=400)
+def catalog_exception_response(error):
+    # Traduce errores del proveedor externo a la API publica del proyecto.
+    if isinstance(error, CatalogUnavailableError):
+        return external_service_unavailable_error()
+    return external_service_error()
 
 
-def duplicate_error():
-    return JsonResponse(
-        {
-            "error": "duplicate_entry",
-            "message": "El juego ya existe en la biblioteca",
-            "details": {"external_game_id": "duplicate"},
-        },
-        status=400,
-    )
+def validate_external_game_id_in_catalog(external_game_id):
+    # Comprueba que el identificador externo exista antes de guardarlo.
+    try:
+        exists = catalog_game_exists(external_game_id)
+    except (CatalogUnavailableError, CatalogResponseError) as error:
+        return catalog_exception_response(error)
 
-
-def not_found_error():
-    return JsonResponse(
-        {
-            "error": "not_found",
-            "message": "La entrada solicitada no existe",
-        },
-        status=404,
-    )
-
-
-def unauthorized_error(message):
-    return JsonResponse(
-        {
-            "error": "unauthorized",
-            "message": message,
-        },
-        status=401,
-    )
-
-
-def method_not_allowed():
-    return JsonResponse({"error": "method_not_allowed"}, status=405)
-
-
-def require_authenticated(request):
-    if not request.user.is_authenticated:
-        return unauthorized_error("No autenticado")
+    if not exists:
+        return invalid_external_game_id_error()
     return None
 
 
-def parse_json_body(request):
+@csrf_exempt
+def health(request):
+    # Endpoint minimo para comprobar que la API esta levantada.
+    if request.method != "GET":
+        return method_not_allowed()
+    return JsonResponse({"status": "ok"}, status=200)
+
+
+def get_owned_entry(user, entry_id):
+    # Busca una entrada solo si pertenece al usuario autenticado.
     try:
-        data = json.loads(request.body.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return None, validation_error({"body": "invalid_json"})
-
-    if not isinstance(data, dict):
-        return None, validation_error({"body": "invalid_format"})
-    if not data:
-        return None, validation_error({"body": "empty"})
-    return data, None
+        return LibraryEntry.objects.get(pk=entry_id, user=user)
+    except LibraryEntry.DoesNotExist:
+        return None
 
 
-def validate_create_payload(data):
-    details = {}
-
-    if "external_game_id" not in data:
-        details["external_game_id"] = "required"
-    elif type(data["external_game_id"]) is not str:
-        details["external_game_id"] = "must_be_string"
-
-    if "status" not in data:
-        details["status"] = "required"
-    elif type(data["status"]) is not str:
-        details["status"] = "must_be_string"
-    elif data["status"] not in ALLOWED_STATUSES:
-        details["status"] = "invalid_choice"
-
-    if "hours_played" not in data:
-        details["hours_played"] = "required"
-    elif type(data["hours_played"]) is not int:
-        details["hours_played"] = "must_be_integer"
-    elif data["hours_played"] < 0:
-        details["hours_played"] = "must_be_greater_or_equal_to_0"
-
-    return details
-
-
-def validate_patch_payload(data):
-    details = {}
-    allowed_fields = {"status", "hours_played"}
-
-    for field in data:
-        if field not in allowed_fields:
-            details[field] = "unknown_field"
-
-    if "status" in data:
-        if type(data["status"]) is not str:
-            details["status"] = "must_be_string"
-        elif data["status"] not in ALLOWED_STATUSES:
-            details["status"] = "invalid_choice"
-
-    if "hours_played" in data:
-        if type(data["hours_played"]) is not int:
-            details["hours_played"] = "must_be_integer"
-        elif data["hours_played"] < 0:
-            details["hours_played"] = "must_be_greater_or_equal_to_0"
-
-    return details
-
-
-def validate_register_payload(data):
-    details = {}
-    User = get_user_model()
-
-    if "username" not in data:
-        details["username"] = "required"
-    elif type(data["username"]) is not str:
-        details["username"] = "must_be_string"
-    elif User.objects.filter(username=data["username"]).exists():
-        details["username"] = "duplicate"
-
-    if "password" not in data:
-        details["password"] = "required"
-    elif type(data["password"]) is not str:
-        details["password"] = "must_be_string"
-    elif len(data["password"]) < 8:
-        details["password"] = "min_length_8"
-
-    return details
-
-
-def validate_login_payload(data):
-    details = {}
-
-    if "username" not in data:
-        details["username"] = "required"
-    elif type(data["username"]) is not str:
-        details["username"] = "must_be_string"
-
-    if "password" not in data:
-        details["password"] = "required"
-    elif type(data["password"]) is not str:
-        details["password"] = "must_be_string"
-
-    return details
-
-
-def serialize_entry(entry):
-    return {
-        "id": entry.id,
-        "external_game_id": entry.external_game_id,
-        "status": entry.status,
-        "hours_played": entry.hours_played,
-    }
-
-
-def serialize_user(user):
-    return {
-        "id": user.id,
-        "username": user.username,
-    }
+def entry_exists_for_user(user, external_game_id, excluded_entry_id=None):
+    # Detecta duplicados por usuario y permite excluir la entrada actual.
+    entries = LibraryEntry.objects.filter(
+        user=user,
+        external_game_id=external_game_id,
+    )
+    if excluded_entry_id is not None:
+        entries = entries.exclude(pk=excluded_entry_id)
+    return entries.exists()
 
 
 @csrf_exempt
 def register(request):
+    # Crea un usuario nuevo despues de validar el JSON recibido.
     if request.method != "POST":
         return method_not_allowed()
 
@@ -204,6 +119,7 @@ def register(request):
 
 @csrf_exempt
 def login(request):
+    # Comprueba credenciales y abre sesion con cookies de Django.
     if request.method != "POST":
         return method_not_allowed()
 
@@ -227,19 +143,62 @@ def login(request):
     return JsonResponse(serialize_user(user), status=200)
 
 
+@csrf_exempt
+def logout(request):
+    # Cierra la sesion; repetir logout tambien devuelve 204.
+    if request.method != "POST":
+        return method_not_allowed()
+
+    django_logout(request)
+    return HttpResponse(status=204)
+
+
+@csrf_exempt
 def me(request):
-    if request.method != "GET":
+    # GET devuelve el perfil; DELETE borra la propia cuenta.
+    if request.method not in {"GET", "DELETE"}:
         return method_not_allowed()
 
     auth_error = require_authenticated(request)
     if auth_error is not None:
         return auth_error
 
+    if request.method == "DELETE":
+        user = request.user
+        django_logout(request)
+        user.delete()
+        return HttpResponse(status=204)
+
     return JsonResponse(serialize_user(request.user), status=200)
 
 
 @csrf_exempt
+def change_password(request):
+    # Cambia la contrasena del usuario autenticado.
+    if request.method != "POST":
+        return method_not_allowed()
+
+    auth_error = require_authenticated(request)
+    if auth_error is not None:
+        return auth_error
+
+    data, error_response = parse_json_body(request)
+    if error_response is not None:
+        return error_response
+
+    details = validate_password_change_payload(data, request.user)
+    if details:
+        return validation_error(details)
+
+    request.user.set_password(data["new_password"])
+    request.user.save(update_fields=["password"])
+    update_session_auth_hash(request, request.user)
+    return JsonResponse({"ok": True}, status=200)
+
+
+@csrf_exempt
 def entries(request):
+    # GET lista la biblioteca del usuario; POST crea una entrada nueva.
     if request.method not in {"POST", "GET"}:
         return method_not_allowed()
 
@@ -256,11 +215,12 @@ def entries(request):
         if details:
             return validation_error(details)
 
-        if LibraryEntry.objects.filter(
-            user=request.user,
-            external_game_id=data["external_game_id"],
-        ).exists():
+        if entry_exists_for_user(request.user, data["external_game_id"]):
             return duplicate_error()
+
+        catalog_error = validate_external_game_id_in_catalog(data["external_game_id"])
+        if catalog_error is not None:
+            return catalog_error
 
         try:
             entry = LibraryEntry.objects.create(
@@ -283,16 +243,16 @@ def entries(request):
 
 @csrf_exempt
 def entry_detail(request, entry_id):
-    if request.method not in {"GET", "PATCH"}:
+    # Gestiona consulta, sustitucion completa y actualizacion parcial.
+    if request.method not in {"GET", "PATCH", "PUT"}:
         return method_not_allowed()
 
     auth_error = require_authenticated(request)
     if auth_error is not None:
         return auth_error
 
-    try:
-        entry = LibraryEntry.objects.get(pk=entry_id, user=request.user)
-    except LibraryEntry.DoesNotExist:
+    entry = get_owned_entry(request.user, entry_id)
+    if entry is None:
         return not_found_error()
 
     if request.method == "GET":
@@ -302,13 +262,81 @@ def entry_detail(request, entry_id):
     if error_response is not None:
         return error_response
 
+    if request.method == "PUT":
+        details = validate_put_payload(data)
+        if details:
+            return validation_error(details)
+
+        if entry_exists_for_user(
+            request.user,
+            data["external_game_id"],
+            excluded_entry_id=entry.id,
+        ):
+            return duplicate_error()
+
+        if data["external_game_id"] != entry.external_game_id:
+            catalog_error = validate_external_game_id_in_catalog(data["external_game_id"])
+            if catalog_error is not None:
+                return catalog_error
+
+        entry.external_game_id = data["external_game_id"]
+        entry.status = data["status"]
+        entry.hours_played = data["hours_played"]
+        entry.save(update_fields=["external_game_id", "status", "hours_played"])
+        return JsonResponse(serialize_entry(entry), status=200)
+
     details = validate_patch_payload(data)
     if details:
         return validation_error(details)
 
+    updated_fields = []
     if "status" in data:
         entry.status = data["status"]
+        updated_fields.append("status")
     if "hours_played" in data:
         entry.hours_played = data["hours_played"]
-    entry.save(update_fields=list(data.keys()))
+        updated_fields.append("hours_played")
+
+    entry.save(update_fields=updated_fields)
     return JsonResponse(serialize_entry(entry), status=200)
+
+
+@csrf_exempt
+def catalog_search(request):
+    # Busca juegos por titulo en CheapShark y devuelve un formato estable.
+    if request.method != "GET":
+        return method_not_allowed()
+
+    query = request.GET.get("q")
+    details = validate_catalog_search_query(query)
+    if details:
+        return validation_error(details)
+
+    try:
+        payload = search_catalog_games(query.strip())
+    except (CatalogUnavailableError, CatalogResponseError) as error:
+        return catalog_exception_response(error)
+
+    return JsonResponse(payload, safe=False, status=200)
+
+
+@csrf_exempt
+def catalog_resolve(request):
+    # Resuelve varios IDs externos a titulo y miniatura sin persistirlos.
+    if request.method != "POST":
+        return method_not_allowed()
+
+    data, error_response = parse_json_body(request, allow_empty=True)
+    if error_response is not None:
+        return error_response
+
+    details = validate_catalog_resolve_payload(data)
+    if details:
+        return validation_error(details)
+
+    try:
+        payload = resolve_catalog_games(data["external_game_ids"])
+    except (CatalogUnavailableError, CatalogResponseError) as error:
+        return catalog_exception_response(error)
+
+    return JsonResponse(payload, safe=False, status=200)
