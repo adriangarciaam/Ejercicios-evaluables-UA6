@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,9 +24,26 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-ct9(841ia1&oa5ky4y606xn_k(8zam7(m9pa)r5+uzw3ax9!n_'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = []
+
+def _split_env_list(value):
+    return [item.strip() for item in value.split(',') if item.strip()]
+
+
+ALLOWED_HOSTS = _split_env_list(
+    os.getenv(
+        'ALLOWED_HOSTS',
+        '127.0.0.1,localhost,.onrender.com,optativa-semana4.onrender.com',
+    )
+)
+
+CSRF_TRUSTED_ORIGINS = _split_env_list(
+    os.getenv(
+        'CSRF_TRUSTED_ORIGINS',
+        'http://127.0.0.1,http://localhost,https://*.onrender.com,https://optativa-semana4.onrender.com',
+    )
+)
 
 
 # Application definition
