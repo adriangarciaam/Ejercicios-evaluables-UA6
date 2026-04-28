@@ -1,19 +1,24 @@
 import json
 
-from django.contrib.auth import authenticate, get_user_model, login as django_login
+from django.contrib.auth import (
+    authenticate,
+    get_user_model,
+    login as django_login,
+    logout as django_logout,
+    update_session_auth_hash,
+)
 from django.db import IntegrityError
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import LibraryEntry
-
-
-ALLOWED_STATUSES = {
-    LibraryEntry.STATUS_WISHLIST,
-    LibraryEntry.STATUS_PLAYING,
-    LibraryEntry.STATUS_COMPLETED,
-    LibraryEntry.STATUS_DROPPED,
-}
+from .validators import (
+    validate_create_payload,
+    validate_login_payload,
+    validate_password_change_payload,
+    validate_patch_payload,
+    validate_put_payload,
+)
 
 
 def validation_error(details=None):
@@ -80,54 +85,6 @@ def parse_json_body(request):
     return data, None
 
 
-def validate_create_payload(data):
-    details = {}
-
-    if "external_game_id" not in data:
-        details["external_game_id"] = "required"
-    elif type(data["external_game_id"]) is not str:
-        details["external_game_id"] = "must_be_string"
-
-    if "status" not in data:
-        details["status"] = "required"
-    elif type(data["status"]) is not str:
-        details["status"] = "must_be_string"
-    elif data["status"] not in ALLOWED_STATUSES:
-        details["status"] = "invalid_choice"
-
-    if "hours_played" not in data:
-        details["hours_played"] = "required"
-    elif type(data["hours_played"]) is not int:
-        details["hours_played"] = "must_be_integer"
-    elif data["hours_played"] < 0:
-        details["hours_played"] = "must_be_greater_or_equal_to_0"
-
-    return details
-
-
-def validate_patch_payload(data):
-    details = {}
-    allowed_fields = {"status", "hours_played"}
-
-    for field in data:
-        if field not in allowed_fields:
-            details[field] = "unknown_field"
-
-    if "status" in data:
-        if type(data["status"]) is not str:
-            details["status"] = "must_be_string"
-        elif data["status"] not in ALLOWED_STATUSES:
-            details["status"] = "invalid_choice"
-
-    if "hours_played" in data:
-        if type(data["hours_played"]) is not int:
-            details["hours_played"] = "must_be_integer"
-        elif data["hours_played"] < 0:
-            details["hours_played"] = "must_be_greater_or_equal_to_0"
-
-    return details
-
-
 def validate_register_payload(data):
     details = {}
     User = get_user_model()
@@ -149,22 +106,6 @@ def validate_register_payload(data):
     return details
 
 
-def validate_login_payload(data):
-    details = {}
-
-    if "username" not in data:
-        details["username"] = "required"
-    elif type(data["username"]) is not str:
-        details["username"] = "must_be_string"
-
-    if "password" not in data:
-        details["password"] = "required"
-    elif type(data["password"]) is not str:
-        details["password"] = "must_be_string"
-
-    return details
-
-
 def serialize_entry(entry):
     return {
         "id": entry.id,
@@ -179,6 +120,17 @@ def serialize_user(user):
         "id": user.id,
         "username": user.username,
     }
+
+
+def message_response(message, status=200):
+    return JsonResponse({"message": message}, status=status)
+
+
+def health(request):
+    if request.method != "GET":
+        return method_not_allowed()
+
+    return JsonResponse({"status": "ok"}, status=200)
 
 
 @csrf_exempt
@@ -227,15 +179,50 @@ def login(request):
     return JsonResponse(serialize_user(user), status=200)
 
 
+@csrf_exempt
+def logout(request):
+    if request.method != "POST":
+        return method_not_allowed()
+
+    django_logout(request)
+    return message_response("Sesion cerrada")
+
+
 def me(request):
-    if request.method != "GET":
+    if request.method == "PUT":
         return method_not_allowed()
 
     auth_error = require_authenticated(request)
     if auth_error is not None:
         return auth_error
 
+    if request.method != "GET":
+        return method_not_allowed()
+
     return JsonResponse(serialize_user(request.user), status=200)
+
+
+@csrf_exempt
+def change_password(request):
+    if request.method != "POST":
+        return method_not_allowed()
+
+    auth_error = require_authenticated(request)
+    if auth_error is not None:
+        return auth_error
+
+    data, error_response = parse_json_body(request)
+    if error_response is not None:
+        return error_response
+
+    details = validate_password_change_payload(data, request.user)
+    if details:
+        return validation_error(details)
+
+    request.user.set_password(data["new_password"])
+    request.user.save(update_fields=["password"])
+    update_session_auth_hash(request, request.user)
+    return message_response("Contrasena actualizada")
 
 
 @csrf_exempt
@@ -283,7 +270,7 @@ def entries(request):
 
 @csrf_exempt
 def entry_detail(request, entry_id):
-    if request.method not in {"GET", "PATCH"}:
+    if request.method not in {"GET", "PATCH", "PUT"}:
         return method_not_allowed()
 
     auth_error = require_authenticated(request)
@@ -302,13 +289,26 @@ def entry_detail(request, entry_id):
     if error_response is not None:
         return error_response
 
-    details = validate_patch_payload(data)
+    if request.method == "PUT":
+        details = validate_put_payload(data)
+    else:
+        details = validate_patch_payload(data)
     if details:
         return validation_error(details)
 
-    if "status" in data:
+    update_fields = []
+    if request.method == "PUT":
+        entry.external_game_id = data["external_game_id"]
         entry.status = data["status"]
-    if "hours_played" in data:
         entry.hours_played = data["hours_played"]
-    entry.save(update_fields=list(data.keys()))
+        update_fields = ["external_game_id", "status", "hours_played"]
+    else:
+        if "status" in data:
+            entry.status = data["status"]
+            update_fields.append("status")
+        if "hours_played" in data:
+            entry.hours_played = data["hours_played"]
+            update_fields.append("hours_played")
+
+    entry.save(update_fields=update_fields)
     return JsonResponse(serialize_entry(entry), status=200)

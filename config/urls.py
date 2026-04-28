@@ -16,12 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-from library.views import login, me, register
+from library.views import change_password, health, login, logout, me, register
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/health/', health),
     path('api/auth/register/', register),
     path('api/auth/login/', login),
+    path('api/auth/logout/', logout),
     path('api/users/me/', me),
+    path('api/users/me/password/', change_password),
     path('api/library/', include('library.urls')),
 ]

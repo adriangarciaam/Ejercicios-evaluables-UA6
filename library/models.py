@@ -31,3 +31,33 @@ class LibraryEntry(models.Model):
                 name="unique_library_entry_per_user_game",
             ),
         ]
+
+    def external_id_length(self):
+        if self.external_game_id is None:
+            return 0
+        if not isinstance(self.external_game_id, str):
+            raise TypeError("external_game_id must be a string or None")
+        return len(self.external_game_id)
+
+    def external_id_upper(self):
+        if self.external_game_id is None:
+            return ""
+        if not isinstance(self.external_game_id, str):
+            raise TypeError("external_game_id must be a string or None")
+        return self.external_game_id.upper()
+
+    def hours_played_label(self):
+        if self.hours_played is None or self.hours_played <= 0:
+            return "none"
+        if self.hours_played < 10:
+            return "low"
+        return "high"
+
+    def status_value(self):
+        mapping = {
+            self.STATUS_WISHLIST: 0,
+            self.STATUS_PLAYING: 1,
+            self.STATUS_COMPLETED: 2,
+            self.STATUS_DROPPED: 3,
+        }
+        return mapping.get(self.status, -1)
