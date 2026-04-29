@@ -131,7 +131,7 @@ class LibraryApiTests(TestCase):
     def test_frontend_home_loads(self):
         response = self.client.get("/")
 
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Biblioteca de videojuegos")
 
     def test_register_success(self):
