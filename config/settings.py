@@ -31,6 +31,41 @@ def _get_env_list(name, default=None):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def _build_database_settings():
+    postgres_name = os.environ.get("POSTGRES_DB", "").strip()
+    postgres_host = os.environ.get("POSTGRES_HOST", "").strip()
+    postgres_password = os.environ.get("POSTGRES_PASSWORD", "").strip()
+    postgres_port = os.environ.get("POSTGRES_PORT", "").strip()
+    postgres_user = os.environ.get("POSTGRES_USER", "").strip()
+
+    if all(
+        [
+            postgres_name,
+            postgres_host,
+            postgres_password,
+            postgres_port,
+            postgres_user,
+        ]
+    ):
+        return {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": postgres_name,
+                "HOST": postgres_host,
+                "PASSWORD": postgres_password,
+                "PORT": postgres_port,
+                "USER": postgres_user,
+            }
+        }
+
+    return {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -94,12 +129,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+DATABASES = _build_database_settings()
 
 
 # Password validation
