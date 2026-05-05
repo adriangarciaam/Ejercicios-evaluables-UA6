@@ -17,6 +17,20 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _get_env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_env_list(name, default=None):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return list(default or [])
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -24,9 +38,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-ct9(841ia1&oa5ky4y606xn_k(8zam7(m9pa)r5+uzw3ax9!n_'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _get_env_bool("DEBUG", True)
 
-ALLOWED_HOSTS = []
+default_allowed_hosts = ["localhost", "127.0.0.1", "[::1]"]
+render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if render_hostname:
+    default_allowed_hosts.append(render_hostname)
+default_allowed_hosts.append("optativa-semana4.onrender.com")
+ALLOWED_HOSTS = _get_env_list("ALLOWED_HOSTS", default_allowed_hosts)
 
 
 # Application definition
