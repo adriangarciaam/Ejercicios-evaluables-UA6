@@ -7,17 +7,26 @@ from django.contrib.auth import (
     logout as django_logout,
     update_session_auth_hash,
 )
+from django.conf import settings
 from django.db import IntegrityError
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
+from .email_service import (
+    EmailService,
+    ExternalServiceError,
+    ExternalServiceUnavailableError,
+)
 from .models import LibraryEntry
 from .validators import (
     validate_create_payload,
+    validate_debug_email_payload,
     validate_login_payload,
     validate_password_change_payload,
     validate_patch_payload,
     validate_put_payload,
+    validate_register_payload,
 )
 
 
@@ -66,6 +75,26 @@ def method_not_allowed():
     return JsonResponse({"error": "method_not_allowed"}, status=405)
 
 
+def external_service_unavailable_error():
+    return JsonResponse(
+        {
+            "error": "external_service_unavailable",
+            "message": "Servicio externo no disponible",
+        },
+        status=503,
+    )
+
+
+def external_service_error():
+    return JsonResponse(
+        {
+            "error": "external_service_error",
+            "message": "Error en servicio externo",
+        },
+        status=502,
+    )
+
+
 def require_authenticated(request):
     if not request.user.is_authenticated:
         return unauthorized_error("No autenticado")
@@ -83,27 +112,6 @@ def parse_json_body(request):
     if not data:
         return None, validation_error({"body": "empty"})
     return data, None
-
-
-def validate_register_payload(data):
-    details = {}
-    User = get_user_model()
-
-    if "username" not in data:
-        details["username"] = "required"
-    elif type(data["username"]) is not str:
-        details["username"] = "must_be_string"
-    elif User.objects.filter(username=data["username"]).exists():
-        details["username"] = "duplicate"
-
-    if "password" not in data:
-        details["password"] = "required"
-    elif type(data["password"]) is not str:
-        details["password"] = "must_be_string"
-    elif len(data["password"]) < 8:
-        details["password"] = "min_length_8"
-
-    return details
 
 
 def serialize_entry(entry):
@@ -133,6 +141,46 @@ def health(request):
     return JsonResponse({"status": "ok"}, status=200)
 
 
+def home(request):
+    if request.method != "GET":
+        return method_not_allowed()
+
+    return render(
+        request,
+        "library/index.html",
+        {
+            "initial_user": (
+                serialize_user(request.user)
+                if request.user.is_authenticated
+                else None
+            ),
+        },
+    )
+
+
+def api_root(request):
+    if request.method != "GET":
+        return method_not_allowed()
+
+    return JsonResponse(
+        {
+            "name": "SteamLike API",
+            "status": "ok",
+            "endpoints": [
+                "/admin/",
+                "/api/health/",
+                "/api/auth/register/",
+                "/api/auth/login/",
+                "/api/auth/logout/",
+                "/api/users/me/",
+                "/api/users/me/password/",
+                "/api/library/entries/",
+            ],
+        },
+        status=200,
+    )
+
+
 @csrf_exempt
 def register(request):
     if request.method != "POST":
@@ -142,16 +190,36 @@ def register(request):
     if error_response is not None:
         return error_response
 
-    details = validate_register_payload(data)
+    User = get_user_model()
+    details = validate_register_payload(data, User)
     if details:
         return validation_error(details)
 
-    User = get_user_model()
     user = User.objects.create_user(
         username=data["username"],
         password=data["password"],
+        email=data["email"],
     )
-    return JsonResponse(serialize_user(user), status=201)
+
+    try:
+        EmailService().send_email(
+            to=user.email,
+            subject="Bienvenido a SteamLike",
+            text=(
+                f"Hola {user.username}, tu cuenta se ha creado correctamente en "
+                "SteamLike."
+            ),
+            html=(
+                "<h1>Bienvenido a SteamLike</h1>"
+                f"<p>Hola {user.username}, tu cuenta se ha creado correctamente.</p>"
+            ),
+            action="register_welcome",
+            user=user,
+        )
+    except (ExternalServiceUnavailableError, ExternalServiceError):
+        pass
+
+    return JsonResponse({**serialize_user(user), "email": user.email}, status=201)
 
 
 @csrf_exempt
@@ -177,6 +245,36 @@ def login(request):
 
     django_login(request, user)
     return JsonResponse(serialize_user(user), status=200)
+
+
+@csrf_exempt
+def debug_email_test(request):
+    if not settings.DEBUG:
+        return JsonResponse({"error": "not_found"}, status=404)
+
+    if request.method != "POST":
+        return method_not_allowed()
+
+    data, error_response = parse_json_body(request)
+    if error_response is not None:
+        return error_response
+
+    details = validate_debug_email_payload(data)
+    if details:
+        return validation_error(details)
+
+    try:
+        EmailService().send_email(
+            to=data["to"],
+            subject=data["subject"],
+            text=data["text"],
+        )
+    except ExternalServiceUnavailableError:
+        return external_service_unavailable_error()
+    except ExternalServiceError:
+        return external_service_error()
+
+    return JsonResponse({"ok": True}, status=200)
 
 
 @csrf_exempt

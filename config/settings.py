@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -121,3 +122,24 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+def _get_env_float(name, default):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return default
+
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+MAILEROO_API_URL = os.environ.get(
+    "MAILEROO_API_URL",
+    "https://smtp.maileroo.com/api/v2/emails",
+)
+MAILEROO_API_TOKEN = os.environ.get("MAILEROO_API_TOKEN", "")
+MAILEROO_FROM_ADDRESS = os.environ.get("MAILEROO_FROM_ADDRESS", "")
+MAILEROO_FROM_NAME = os.environ.get("MAILEROO_FROM_NAME", "")
+MAILEROO_TIMEOUT = _get_env_float("MAILEROO_TIMEOUT", 10.0)
