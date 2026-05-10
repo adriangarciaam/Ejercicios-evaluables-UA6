@@ -135,13 +135,19 @@ class LibraryApiTests(TestCase):
         self.assertContains(response, "Biblioteca de videojuegos")
 
     def test_register_success(self):
-        response = self.post_json(
-            "/api/auth/register/",
-            {"username": "carla", "password": "password123"},
-        )
+        with patch("library.views.EmailService.send_email"):
+            response = self.post_json(
+                "/api/auth/register/",
+                {
+                    "username": "carla",
+                    "password": "password123",
+                    "email": "carla@example.com",
+                },
+            )
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["username"], "carla")
+        self.assertEqual(response.json()["email"], "carla@example.com")
         self.assertIn("id", response.json())
         self.assertNotIn("password", response.json())
 
@@ -158,7 +164,11 @@ class LibraryApiTests(TestCase):
     def test_register_rejects_duplicate_username(self):
         response = self.post_json(
             "/api/auth/register/",
-            {"username": "ana", "password": "password123"},
+            {
+                "username": "ana",
+                "password": "password123",
+                "email": "ana2@example.com",
+            },
         )
 
         self.assertEqual(response.status_code, 400)
@@ -168,7 +178,11 @@ class LibraryApiTests(TestCase):
     def test_register_rejects_short_password(self):
         response = self.post_json(
             "/api/auth/register/",
-            {"username": "carla", "password": "short"},
+            {
+                "username": "carla",
+                "password": "short",
+                "email": "carla@example.com",
+            },
         )
 
         self.assertEqual(response.status_code, 400)
@@ -177,7 +191,7 @@ class LibraryApiTests(TestCase):
     def test_register_rejects_invalid_types(self):
         response = self.post_json(
             "/api/auth/register/",
-            {"username": 10, "password": []},
+            {"username": 10, "password": [], "email": 55},
         )
 
         self.assertEqual(response.status_code, 400)
@@ -186,6 +200,7 @@ class LibraryApiTests(TestCase):
             {
                 "username": "must_be_string",
                 "password": "must_be_string",
+                "email": "must_be_string",
             },
         )
 
@@ -193,7 +208,23 @@ class LibraryApiTests(TestCase):
         response = self.post_json("/api/auth/register/", {"username": "carla"})
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["details"], {"password": "required"})
+        self.assertEqual(
+            response.json()["details"],
+            {"password": "required", "email": "required"},
+        )
+
+    def test_register_rejects_invalid_email_format(self):
+        response = self.post_json(
+            "/api/auth/register/",
+            {
+                "username": "carla",
+                "password": "password123",
+                "email": "carla.example.com",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["details"], {"email": "invalid_format"})
 
     def test_register_rejects_missing_username(self):
         response = self.post_json(

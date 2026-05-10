@@ -1,187 +1,224 @@
 {% load static %}
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Biblioteca de videojuegos</title>
-  <link rel="stylesheet" href="{% static 'library/app.css' %}">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SteamLike | Mi biblioteca</title>
+    <meta name="description" content="Interfaz web para gestionar tu biblioteca de juegos en SteamLike.">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23071115'/%3E%3Cpath d='M18 18h28v28H18z' fill='none' stroke='%23f0e0c8' stroke-width='4' rx='10'/%3E%3Ccircle cx='25' cy='30' r='3' fill='%23f0e0c8'/%3E%3Ccircle cx='39' cy='27' r='3' fill='%2325c8d2'/%3E%3Ccircle cx='34' cy='39' r='3' fill='%23ef7b63'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="{% static 'library/app.css' %}">
 </head>
 <body>
-  <main class="shell">
-    <section class="panel intro-panel" aria-labelledby="app-title">
-      <div>
-        <p class="eyebrow">DWES UA6</p>
-        <h1 id="app-title">Biblioteca de videojuegos</h1>
-        <p class="intro-copy">Registro, acceso y partidas guardadas por usuario.</p>
-      </div>
-      <img
-        class="cover-image"
-        src="https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?auto=format&fit=crop&w=1200&q=80"
-        alt="Mandos y consola de videojuegos"
-      >
-    </section>
+    <div class="shell">
+        <aside class="sidebar">
+            <div class="brand-block">
+                <div class="brand-mark" aria-hidden="true">
+                    <span class="brand-mark__pad"></span>
+                    <span class="brand-mark__dot brand-mark__dot--left"></span>
+                    <span class="brand-mark__dot brand-mark__dot--right"></span>
+                    <span class="brand-mark__dot brand-mark__dot--bottom"></span>
+                </div>
+                <div>
+                    <h1 class="brand-title">Steam<span>Like</span></h1>
+                    <p class="brand-copy">Tu biblioteca, a tu manera.</p>
+                </div>
+            </div>
 
-    <section class="status-bar" aria-live="polite">
-      <div>
-        <span class="label">Sesion</span>
-        <strong id="session-status">Sin autenticar</strong>
-      </div>
-      <div class="button-row">
-        <button id="health-check" type="button" class="secondary-button">Estado API</button>
-        <button id="refresh-session" type="button" class="secondary-button">Comprobar usuario</button>
-        <button id="logout-button" type="button">Cerrar sesion</button>
-      </div>
-    </section>
+            <nav class="nav" aria-label="Secciones principales">
+                <a class="nav__link is-active" href="#inicio">Inicio</a>
+                <a class="nav__link" href="#biblioteca">Mi biblioteca</a>
+                <a class="nav__link" href="#cuenta">Mi cuenta</a>
+                <a class="nav__link" href="#salud-api">Health API</a>
+            </nav>
 
-    <section class="grid auth-grid">
-      <form id="register-form" class="panel" novalidate>
-        <h2>Registro</h2>
-        <label>
-          Usuario
-          <input name="username" autocomplete="username" required>
-        </label>
-        <label>
-          Contrasena
-          <input name="password" type="password" autocomplete="new-password" required minlength="8">
-        </label>
-        <button type="submit">Crear cuenta</button>
-      </form>
+            <div class="sidebar-card">
+                <p class="sidebar-card__eyebrow">Estado rápido</p>
+                <p id="sidebar-session-copy" class="sidebar-card__title">No autenticado</p>
+                <p id="sidebar-session-detail" class="sidebar-card__text">
+                    Inicia sesión para cargar y actualizar tu colección.
+                </p>
+            </div>
 
-      <form id="login-form" class="panel" novalidate>
-        <h2>Login</h2>
-        <label>
-          Usuario
-          <input name="username" autocomplete="username" required>
-        </label>
-        <label>
-          Contrasena
-          <input name="password" type="password" autocomplete="current-password" required>
-        </label>
-        <button type="submit">Entrar</button>
-      </form>
+            <div class="sidebar-ornament" aria-hidden="true">
+                <span class="sidebar-ornament__ring"></span>
+                <span class="sidebar-ornament__controller"></span>
+            </div>
+        </aside>
 
-      <form id="password-form" class="panel" novalidate>
-        <h2>Cambiar contrasena</h2>
-        <label>
-          Contrasena actual
-          <input name="current_password" type="password" autocomplete="current-password" required>
-        </label>
-        <label>
-          Nueva contrasena
-          <input name="new_password" type="password" autocomplete="new-password" required minlength="8">
-        </label>
-        <button type="submit">Cambiar contrasena</button>
-      </form>
-    </section>
+        <main class="content">
+            <header class="topbar">
+                <div class="topbar__meta">
+                    <span class="topbar__label">Interfaz conectada al backend Django</span>
+                    <strong class="topbar__status" id="topbar-status">Sesión pendiente</strong>
+                </div>
+                <div class="topbar__actions">
+                    <button id="primary-action" class="button button--primary" type="button">Añadir juego</button>
+                    <button id="refresh-button" class="button button--ghost" type="button">Actualizar</button>
+                    <button id="logout-button" class="button button--ghost" type="button" disabled>Cerrar sesión</button>
+                </div>
+            </header>
 
-    <section class="grid library-layout">
-      <form id="entry-form" class="panel" novalidate>
-        <h2>Anadir juego</h2>
-        <label>
-          ID externo
-          <input name="external_game_id" placeholder="game-123" required>
-        </label>
-        <label>
-          Estado
-          <select name="status" required>
-            <option value="wishlist">wishlist</option>
-            <option value="playing">playing</option>
-            <option value="completed">completed</option>
-            <option value="dropped">dropped</option>
-          </select>
-        </label>
-        <label>
-          Horas jugadas
-          <input name="hours_played" type="number" min="0" value="0" required>
-        </label>
-        <button type="submit">Guardar juego</button>
-      </form>
+            <section id="inicio" class="hero panel">
+                <div class="hero__copy">
+                    <p class="hero__kicker">SteamLike</p>
+                    <h2>Tu biblioteca de juegos.<br><span>Siempre contigo.</span></h2>
+                    <p class="hero__text">
+                        Organiza tu colección, añade títulos, actualiza tus horas jugadas y consulta el estado de la API sin salir de la misma pantalla.
+                    </p>
+                </div>
+                <div class="hero__art" aria-hidden="true"></div>
+            </section>
 
-      <section class="panel" aria-labelledby="library-title">
-        <div class="panel-header">
-          <h2 id="library-title">Mi biblioteca</h2>
-          <button id="load-entries" type="button">Actualizar lista</button>
-        </div>
-        <div id="entries-list" class="entries-list" aria-live="polite"></div>
-      </section>
-    </section>
+            <section class="dashboard-grid">
+                <div class="auth-stack">
+                    <article class="panel auth-card auth-card--teal">
+                        <h3>Iniciar sesión</h3>
+                        <form id="login-form" class="form">
+                            <label class="field">
+                                <span>Usuario</span>
+                                <input name="username" autocomplete="username" required>
+                            </label>
+                            <label class="field">
+                                <span>Contraseña</span>
+                                <input name="password" type="password" autocomplete="current-password" required>
+                            </label>
+                            <button class="button button--primary button--full" type="submit">Entrar</button>
+                        </form>
+                    </article>
 
-    <section class="grid actions-grid">
-      <form id="detail-form" class="panel" novalidate>
-        <h2>Detalle</h2>
-        <label>
-          ID de entrada
-          <input name="entry_id" type="number" min="1" required>
-        </label>
-        <button type="submit">Buscar entrada</button>
-        <pre id="detail-output" class="output" aria-live="polite"></pre>
-      </form>
+                    <article class="panel auth-card auth-card--coral">
+                        <h3>Crear cuenta</h3>
+                        <form id="register-form" class="form">
+                            <label class="field">
+                                <span>Usuario</span>
+                                <input name="username" autocomplete="username" required>
+                            </label>
+                            <label class="field">
+                                <span>Email</span>
+                                <input name="email" type="email" autocomplete="email" required>
+                            </label>
+                            <label class="field">
+                                <span>Contraseña</span>
+                                <input name="password" type="password" autocomplete="new-password" required>
+                            </label>
+                            <button class="button button--secondary button--full" type="submit">Crear cuenta</button>
+                        </form>
+                    </article>
+                </div>
 
-      <form id="patch-form" class="panel" novalidate>
-        <h2>Actualizar parte</h2>
-        <label>
-          ID de entrada
-          <input name="entry_id" type="number" min="1" required>
-        </label>
-        <label>
-          Estado
-          <select name="status">
-            <option value="">Sin cambios</option>
-            <option value="wishlist">wishlist</option>
-            <option value="playing">playing</option>
-            <option value="completed">completed</option>
-            <option value="dropped">dropped</option>
-          </select>
-        </label>
-        <label>
-          Horas jugadas
-          <input name="hours_played" type="number" min="0" placeholder="Sin cambios">
-        </label>
-        <button type="submit">Actualizar entrada</button>
-      </form>
+                <div class="side-stack">
+                    <article id="cuenta" class="panel info-card">
+                        <div class="section-heading">
+                            <h3>Estado de la cuenta</h3>
+                            <span id="account-badge" class="status-badge status-badge--muted">Sin sesión</span>
+                        </div>
+                        <div class="account-summary">
+                            <p id="account-name" class="account-summary__name">No autenticado</p>
+                            <p id="account-detail" class="account-summary__detail">Inicia sesión para ver y editar tu biblioteca.</p>
+                        </div>
 
-      <form id="put-form" class="panel" novalidate>
-        <h2>Sustituir completa</h2>
-        <label>
-          ID de entrada
-          <input name="entry_id" type="number" min="1" required>
-        </label>
-        <label>
-          Nuevo ID externo
-          <input name="external_game_id" placeholder="game-456" required>
-        </label>
-        <label>
-          Estado
-          <select name="status" required>
-            <option value="wishlist">wishlist</option>
-            <option value="playing">playing</option>
-            <option value="completed">completed</option>
-            <option value="dropped">dropped</option>
-          </select>
-        </label>
-        <label>
-          Horas jugadas
-          <input name="hours_played" type="number" min="0" value="0" required>
-        </label>
-        <button type="submit">Sustituir entrada</button>
-      </form>
-    </section>
+                        <form id="password-form" class="form form--compact">
+                            <input id="password-username" class="visually-hidden" type="text" autocomplete="username" tabindex="-1" aria-hidden="true">
+                            <label class="field">
+                                <span>Contraseña actual</span>
+                                <input name="current_password" type="password" autocomplete="current-password" required>
+                            </label>
+                            <label class="field">
+                                <span>Nueva contraseña</span>
+                                <input name="new_password" type="password" autocomplete="new-password" required>
+                            </label>
+                            <button class="button button--ghost button--full" type="submit">Cambiar contraseña</button>
+                        </form>
+                    </article>
 
-    <section class="panel danger-zone" aria-labelledby="danger-title">
-      <div>
-        <h2 id="danger-title">Cuenta</h2>
-        <p>Borra el usuario autenticado y todas sus entradas de biblioteca.</p>
-      </div>
-      <button id="delete-account-button" type="button" class="danger-button">Borrar mi cuenta</button>
-    </section>
+                    <article id="salud-api" class="panel info-card">
+                        <div class="section-heading">
+                            <h3>Salud de la API</h3>
+                            <span id="health-pill" class="status-badge status-badge--muted">Pendiente</span>
+                        </div>
+                        <p class="endpoint-pill">GET /api/health/</p>
+                        <p id="health-copy" class="muted-copy">Esperando comprobación.</p>
+                        <button id="health-button" class="button button--ghost button--full" type="button">Comprobar de nuevo</button>
+                    </article>
+                </div>
+            </section>
 
-    <section class="panel log-panel" aria-labelledby="log-title">
-      <h2 id="log-title">Respuesta</h2>
-      <pre id="result-log" class="output" aria-live="polite"></pre>
-    </section>
-  </main>
+            <section id="biblioteca" class="workspace-grid">
+                <article class="panel library-panel">
+                    <div class="section-heading">
+                        <h3>Mi biblioteca</h3>
+                        <div class="legend">
+                            <span><i class="legend__dot legend__dot--wishlist"></i>wishlist</span>
+                            <span><i class="legend__dot legend__dot--playing"></i>playing</span>
+                            <span><i class="legend__dot legend__dot--completed"></i>completed</span>
+                            <span><i class="legend__dot legend__dot--dropped"></i>dropped</span>
+                        </div>
+                    </div>
 
-  <script src="{% static 'library/app.js' %}"></script>
+                    <div class="table-wrap">
+                        <table class="library-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Juego</th>
+                                    <th>Estado</th>
+                                    <th>Horas</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="library-table-body">
+                                <tr class="table-empty">
+                                    <td colspan="5">Inicia sesión para cargar tu biblioteca.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+
+                <div class="workspace-side">
+                    <article class="panel form-panel">
+                        <h3>Añadir nuevo juego</h3>
+                        <form id="entry-form" class="form">
+                            <label class="field">
+                                <span>ID externo del juego</span>
+                                <input name="external_game_id" placeholder="Ej: hollow-knight" required>
+                            </label>
+                            <label class="field">
+                                <span>Estado</span>
+                                <select name="status">
+                                    <option value="wishlist">wishlist</option>
+                                    <option value="playing">playing</option>
+                                    <option value="completed">completed</option>
+                                    <option value="dropped">dropped</option>
+                                </select>
+                            </label>
+                            <label class="field">
+                                <span>Horas jugadas</span>
+                                <input name="hours_played" type="number" min="0" value="0" required>
+                            </label>
+                            <button class="button button--primary button--full" type="submit">Añadir a mi biblioteca</button>
+                        </form>
+                    </article>
+
+                    <article class="panel doc-panel">
+                        <h3>Contrato activo</h3>
+                        <ul class="doc-list">
+                            <li>`POST /api/auth/register/` crea usuario y devuelve `id`, `username` y `email`.</li>
+                            <li>`POST /api/auth/login/` abre sesión con cookie.</li>
+                            <li>`GET /api/users/me/` informa del usuario autenticado.</li>
+                            <li>`POST /api/library/entries/` añade juegos.</li>
+                            <li>`PATCH /api/library/entries/:id/` actualiza estado y horas.</li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <div id="flash-container" class="flash-container" aria-live="polite"></div>
+        </main>
+    </div>
+
+    {{ initial_user|json_script:"initial-user-data" }}
+    <script src="{% static 'library/app.js' %}" defer></script>
 </body>
 </html>

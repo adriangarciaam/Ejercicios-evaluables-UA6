@@ -1,0 +1,128 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e10]:
+      - heading "SteamLike" [level=1] [ref=e11]
+      - paragraph [ref=e12]: Tu biblioteca, a tu manera.
+    - navigation "Secciones principales" [ref=e13]:
+      - link "Inicio" [ref=e14] [cursor=pointer]:
+        - /url: "#inicio"
+      - link "Mi biblioteca" [ref=e15] [cursor=pointer]:
+        - /url: "#biblioteca"
+      - link "Mi cuenta" [ref=e16] [cursor=pointer]:
+        - /url: "#cuenta"
+      - link "Health API" [ref=e17] [cursor=pointer]:
+        - /url: "#salud-api"
+    - generic [ref=e18]:
+      - paragraph [ref=e19]: Estado rápido
+      - paragraph [ref=e20]: No autenticado
+      - paragraph [ref=e21]: Inicia sesión para cargar y actualizar tu colección.
+  - main [ref=e25]:
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28]: Interfaz conectada al backend Django
+        - strong [ref=e29]: Sesión pendiente
+      - generic [ref=e30]:
+        - button "Crear cuenta" [ref=e31] [cursor=pointer]
+        - button "Actualizar" [ref=e32] [cursor=pointer]
+        - button "Cerrar sesión" [disabled] [ref=e33]
+    - generic [ref=e35]:
+      - paragraph [ref=e36]: SteamLike
+      - heading "Tu biblioteca de juegos. Siempre contigo." [level=2] [ref=e37]:
+        - text: Tu biblioteca de juegos.
+        - text: Siempre contigo.
+      - paragraph [ref=e38]: Organiza tu colección, añade títulos, actualiza tus horas jugadas y consulta el estado de la API sin salir de la misma pantalla.
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - article [ref=e42]:
+          - heading "Iniciar sesión" [level=3] [ref=e43]
+          - generic [ref=e44]:
+            - generic [ref=e45]:
+              - generic [ref=e46]: Usuario
+              - textbox "Usuario" [ref=e47]
+            - generic [ref=e48]:
+              - generic [ref=e49]: Contraseña
+              - textbox "Contraseña" [ref=e50]
+            - button "Entrar" [ref=e51] [cursor=pointer]
+        - article [ref=e52]:
+          - heading "Crear cuenta" [level=3] [ref=e53]
+          - generic [ref=e54]:
+            - generic [ref=e55]:
+              - generic [ref=e56]: Usuario
+              - textbox "Usuario" [ref=e57]
+            - generic [ref=e58]:
+              - generic [ref=e59]: Email
+              - textbox "Email" [ref=e60]
+            - generic [ref=e61]:
+              - generic [ref=e62]: Contraseña
+              - textbox "Contraseña" [ref=e63]
+            - button "Crear cuenta" [ref=e64] [cursor=pointer]
+      - generic [ref=e65]:
+        - article [ref=e66]:
+          - generic [ref=e67]:
+            - heading "Estado de la cuenta" [level=3] [ref=e68]
+            - generic [ref=e69]: Sin sesión
+          - generic [ref=e70]:
+            - paragraph [ref=e71]: No autenticado
+            - paragraph [ref=e72]: Inicia sesión para ver y editar tu biblioteca.
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - generic [ref=e75]: Contraseña actual
+              - textbox "Contraseña actual" [disabled] [ref=e76]
+            - generic [ref=e77]:
+              - generic [ref=e78]: Nueva contraseña
+              - textbox "Nueva contraseña" [disabled] [ref=e79]
+            - button "Cambiar contraseña" [disabled] [ref=e80]
+        - article [ref=e81]:
+          - generic [ref=e82]:
+            - heading "Salud de la API" [level=3] [ref=e83]
+            - generic [ref=e84]: OK
+          - paragraph [ref=e85]: GET /api/health/
+          - paragraph [ref=e86]: Estado operativo. La API responde correctamente.
+          - button "Comprobar de nuevo" [ref=e87] [cursor=pointer]
+    - generic [ref=e88]:
+      - article [ref=e89]:
+        - generic [ref=e90]:
+          - heading "Mi biblioteca" [level=3] [ref=e91]
+          - generic [ref=e92]:
+            - generic [ref=e93]: wishlist
+            - generic [ref=e95]: playing
+            - generic [ref=e97]: completed
+            - generic [ref=e99]: dropped
+        - table [ref=e102]:
+          - rowgroup [ref=e103]:
+            - row "# Juego Estado Horas Acciones" [ref=e104]:
+              - columnheader "#" [ref=e105]
+              - columnheader "Juego" [ref=e106]
+              - columnheader "Estado" [ref=e107]
+              - columnheader "Horas" [ref=e108]
+              - columnheader "Acciones" [ref=e109]
+          - rowgroup [ref=e110]:
+            - row "Inicia sesión para cargar tu biblioteca." [ref=e111]:
+              - cell "Inicia sesión para cargar tu biblioteca." [ref=e112]
+      - generic [ref=e113]:
+        - article [ref=e114]:
+          - heading "Añadir nuevo juego" [level=3] [ref=e115]
+          - generic [ref=e116]:
+            - generic [ref=e117]:
+              - generic [ref=e118]: ID externo del juego
+              - textbox "ID externo del juego" [disabled] [ref=e119]:
+                - /placeholder: "Ej: hollow-knight"
+            - generic [ref=e120]:
+              - generic [ref=e121]: Estado
+              - combobox "Estado" [disabled] [ref=e122]:
+                - option "wishlist" [selected]
+                - option "playing"
+                - option "completed"
+                - option "dropped"
+            - generic [ref=e123]:
+              - generic [ref=e124]: Horas jugadas
+              - spinbutton "Horas jugadas" [disabled] [ref=e125]: "0"
+            - button "Añadir a mi biblioteca" [disabled] [ref=e126]
+        - article [ref=e127]:
+          - heading "Contrato activo" [level=3] [ref=e128]
+          - list [ref=e129]:
+            - listitem [ref=e130]: "`POST /api/auth/register/` crea usuario y devuelve `id`, `username` y `email`."
+            - listitem [ref=e131]: "`POST /api/auth/login/` abre sesión con cookie."
+            - listitem [ref=e132]: "`GET /api/users/me/` informa del usuario autenticado."
+            - listitem [ref=e133]: "`POST /api/library/entries/` añade juegos."
+            - listitem [ref=e134]: "`PATCH /api/library/entries/:id/` actualiza estado y horas."

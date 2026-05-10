@@ -17,6 +17,20 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _get_env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_env_list(name, default=None):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return list(default or [])
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -24,26 +38,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-ct9(841ia1&oa5ky4y606xn_k(8zam7(m9pa)r5+uzw3ax9!n_'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+DEBUG = _get_env_bool("DEBUG", True)
 
-
-def _split_env_list(value):
-    return [item.strip() for item in value.split(',') if item.strip()]
-
-
-ALLOWED_HOSTS = _split_env_list(
-    os.getenv(
-        'ALLOWED_HOSTS',
-        '127.0.0.1,localhost,.onrender.com,optativa-semana4.onrender.com',
-    )
-)
-
-CSRF_TRUSTED_ORIGINS = _split_env_list(
-    os.getenv(
-        'CSRF_TRUSTED_ORIGINS',
-        'http://127.0.0.1,http://localhost,https://*.onrender.com,https://optativa-semana4.onrender.com',
-    )
-)
+default_allowed_hosts = ["localhost", "127.0.0.1", "[::1]"]
+render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if render_hostname:
+    default_allowed_hosts.append(render_hostname)
+default_allowed_hosts.append("optativa-semana4.onrender.com")
+ALLOWED_HOSTS = _get_env_list("ALLOWED_HOSTS", default_allowed_hosts)
 
 
 # Application definition
@@ -136,18 +138,30 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-STORAGES = {
-    'staticfiles': {
-        'BACKEND': (
-            'django.contrib.staticfiles.storage.StaticFilesStorage'
-            if DEBUG
-            else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-        ),
-    },
-}
+WHITENOISE_USE_FINDERS = True
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+def _get_env_float(name, default):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return default
+
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+MAILEROO_API_URL = os.environ.get(
+    "MAILEROO_API_URL",
+    "https://smtp.maileroo.com/api/v2/emails",
+)
+MAILEROO_API_TOKEN = os.environ.get("MAILEROO_API_TOKEN", "")
+MAILEROO_FROM_ADDRESS = os.environ.get("MAILEROO_FROM_ADDRESS", "")
+MAILEROO_FROM_NAME = os.environ.get("MAILEROO_FROM_NAME", "")
+MAILEROO_TIMEOUT = _get_env_float("MAILEROO_TIMEOUT", 10.0)
