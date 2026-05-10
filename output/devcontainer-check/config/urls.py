@@ -16,14 +16,27 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-from library.views import change_password, health, login, logout, me, register
+from library.views import (
+    api_root,
+    change_password,
+    debug_email_test,
+    health,
+    home,
+    login,
+    logout,
+    me,
+    register,
+)
 
 urlpatterns = [
+    path('', home),
+    path('api/', api_root),
     path('admin/', admin.site.urls),
     path('api/health/', health),
     path('api/auth/register/', register),
     path('api/auth/login/', login),
     path('api/auth/logout/', logout),
+    path('api/debug/email/test/', debug_email_test),
     path('api/users/me/', me),
     path('api/users/me/password/', change_password),
     path('api/library/', include('library.urls')),

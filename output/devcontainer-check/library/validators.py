@@ -94,6 +94,54 @@ def validate_login_payload(data):
     return details
 
 
+def validate_register_payload(data, user_model):
+    details = {}
+
+    if "username" not in data:
+        details["username"] = "required"
+    elif type(data["username"]) is not str:
+        details["username"] = "must_be_string"
+    elif user_model.objects.filter(username=data["username"]).exists():
+        details["username"] = "duplicate"
+
+    if "password" not in data:
+        details["password"] = "required"
+    elif type(data["password"]) is not str:
+        details["password"] = "must_be_string"
+    elif len(data["password"]) < 8:
+        details["password"] = "min_length_8"
+
+    if "email" not in data:
+        details["email"] = "required"
+    elif type(data["email"]) is not str:
+        details["email"] = "must_be_string"
+    elif "@" not in data["email"]:
+        details["email"] = "invalid_format"
+
+    return details
+
+
+def validate_debug_email_payload(data):
+    details = {}
+
+    if "to" not in data:
+        details["to"] = "required"
+    elif type(data["to"]) is not str:
+        details["to"] = "must_be_string"
+
+    if "subject" not in data:
+        details["subject"] = "required"
+    elif type(data["subject"]) is not str:
+        details["subject"] = "must_be_string"
+
+    if "text" not in data:
+        details["text"] = "required"
+    elif type(data["text"]) is not str:
+        details["text"] = "must_be_string"
+
+    return details
+
+
 def validate_password_change_payload(data, user):
     details = {}
 
